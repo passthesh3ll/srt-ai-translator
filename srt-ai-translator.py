@@ -1,5 +1,5 @@
 from g4f.client import Client
-from g4f.Provider import Blackbox
+from g4f.Provider import OIVSCode
 from tqdm import tqdm
 import os, threading, json, pycountry, argparse, time
 from colorama import init, Fore
@@ -39,25 +39,23 @@ def translate_subtitle(client, subtitle, input_lang, output_lang, pbar):
     while retries <= max_retries:
         try:
             response = client.chat.completions.create(
-                model="DeepSeek-V3",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": f"Translate the following sentence from {input_lang} to {output_lang}, write only the translated sentence: {subtitle['text']}"}],
                 web_search=False
             )
             subtitle['translated'] = response.choices[0].message.content
             pbar.update(1)
-            return  # Translation successful, exit the function
+            return
         except Exception as e:
             print(f"{Fore.YELLOW}ERR: sub {subtitle['id']} -> {e}, {Fore.GREEN}retry {retries + 1}/{max_retries + 1}")
             retries += 1
             if retries <= max_retries:
-                time.sleep(5)  # Wait for a short time before retrying
+                time.sleep(5)
             else:
                 subtitle['translated'] = "! TRANSLATION ERROR !"
                 pbar.update(1)
-                return  # Max retries reached, exit the function
-
+                return 
 def check_language(lang_code):
-    # https://www.loc.gov/standards/iso639-2/php/code_list.php
     try:
         language = pycountry.languages.get(alpha_2=lang_code) or pycountry.languages.get(alpha_3=lang_code)
         return language.name.upper()
@@ -75,8 +73,8 @@ def main():
     parser.add_argument("output_lang", help="output language (iso639): eng,fre,ita,jpn..")
     parser.add_argument("-o", "--output_file",help="custom output path for the .srt file")
     parser.add_argument("-t", "--threads",type=int,help="number of threads",default=100)
-
     args = parser.parse_args()
+
     input_file = os.path.abspath(args.input_file)
     input_lang = check_language(args.input_lang)
     output_lang = check_language(args.output_lang)
@@ -86,7 +84,7 @@ def main():
     else:
         output_file = os.path.abspath(args.input_file)
     threads_number = args.threads
-    
+
     # ERROR CHECK
     if not os.path.exists(input_file):
         print(f"{Fore.RED}ERR: input file not found.")
@@ -107,8 +105,8 @@ def main():
     # PARAMETERS
     file_name, file_ext = os.path.splitext(input_file)
     subtitles_list = srt_to_dict(input_file)
-    client = Client(provider=Blackbox)
-
+    client = Client(provider=OIVSCode)
+    
     # TRANSLATION
     threads = []
     with tqdm(total=len(subtitles_list), desc=f"Translating ({Fore.YELLOW}{threads_number} threads{Fore.RESET})") as pbar:
@@ -116,7 +114,7 @@ def main():
             thread = threading.Thread(target=translate_subtitle, args=(client,subtitle,input_lang,output_lang,pbar))
             threads.append(thread)
             thread.start()
-
+            
             # threads_number + 1 for the main thread
             while threading.active_count() > threads_number + 1:
                 pass
