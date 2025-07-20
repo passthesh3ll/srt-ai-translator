@@ -17,11 +17,48 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-2. Install dependences
+2. Install Dependencies
+
+
+2a. Using [**Poetry**](https://python-poetry.org/)
+
+Install Poetry (if not already installed), e.g. on linux/mac:
 
 ```bash
-pip install g4f\[all\] argparse pycountry tqdm colorama
+curl -sSL https://install.python-poetry.org | python3 -
 ```
+
+Then install dependencies:
+
+```bash
+poetry install
+```
+
+To run the script:
+
+```bash
+poetry run srt-ai-translator
+```
+
+2b. Using [**Rye**](https://rye.astral.sh/guide/installation/)
+
+Install Rye (if not already installed), e.g. on linux/mac:
+
+```bash
+curl -sSf https://rye.astral.sh/get | bash
+```
+
+Then install dependencies:
+
+```bash
+rye sync
+```
+To run the script:
+
+```bash
+rye run srt-ai-translator
+```
+
 
 3. ffmpeg must be installed
 
@@ -32,7 +69,7 @@ _(Available languages: [ISO 639-2 Codes](https://www.loc.gov/standards/iso639-2/
 **Help**:
 
 ```
-$ python srt-ai-translator.py -h
+$ poetry run srt-ai-translator -h
 
 usage: srt-ai-translator.py [-h] [-o OUTPUT_FOLDER] [--demux [DEMUX]] [--delete]
                             input_path input_lang output_lang
@@ -55,19 +92,19 @@ options:
 **Translate a single subtitle**:
 
 ```bash
-python srt-ai-translator.py INPUT.srt eng ita
+poetry run srt-ai-translator INPUT.srt eng ita
 ```
 
 **Translate all subtitles in a folder**:
 
 ```bash
-python srt-ai-translator.py . eng ita
+poetry run srt-ai-translator . eng ita
 ```
 
 **Translate all subtitles in a folder auto-demuxing srt (stream index=0)**:
 
 ```bash
-python srt-ai-translator.py . eng ita --demux 0
+poetry run srt-ai-translator . eng ita --demux 0
 ```
 
 ## Screen

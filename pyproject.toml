@@ -1,0 +1,40 @@
+[project]
+name = "srt-ai-translator"
+version = "0.1.0"
+description = "Translate SRT subtitles using AI with CLI support"
+authors = [{ name = "sh3ll" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.9"
+
+dependencies = [
+    "tqdm",
+    "colorama",
+    "pycountry",
+    "g4f[all]",
+]
+
+[project.scripts]
+srt-ai-translator = "srt_ai_translator.__main__:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "srt-ai-translator"
+version = "0.1.0"
+description = "Translate SRT subtitles using AI with CLI support"
+authors = ["sh3ll"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+tqdm = "*"
+colorama = "*"
+pycountry = "*"
+g4f = { version = "*", extras = ["all"] }
+
+[tool.poetry.scripts]
+srt-ai-translator = "srt_ai_translator.__main__:main"
