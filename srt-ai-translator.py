@@ -1,4 +1,4 @@
-import os, json, pycountry, argparse, time, subprocess, tempfile, shutil
+import os, json, pycountry, argparse, time, subprocess, tempfile, shutil, threading
 from g4f.client import Client
 from g4f.Provider import DeepInfra
 from tqdm import tqdm
@@ -41,6 +41,7 @@ def dict_to_srt(subtitles, output_file_path):
 def translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history, model):
     max_retries = 3
     retries = 0
+    timeout_seconds = 20
     
     new_message = {
         "role": "user",
@@ -61,28 +62,48 @@ def translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history,
         history.pop(0)
     
     while retries <= max_retries:
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=history,
-                web_search=False
-            )
-            history.append({"role":"assistant","content":response.choices[0].message.content})
-            subtitle['translated'] = response.choices[0].message.content
-            pbar.update(1)
-            return
-        except Exception as e:
-            print(f"{Fore.RED}ERR{Fore.RESET}: sub {subtitle['id']} -> {e}")
+        result = {"response": None, "error": None}
+        
+        def make_request():
+            try:
+                result["response"] = client.chat.completions.create(
+                    model=model,
+                    messages=history,
+                    web_search=False
+                )
+            except Exception as e:
+                result["error"] = e
+        
+        thread = threading.Thread(target=make_request)
+        thread.start()
+        thread.join(timeout=timeout_seconds)
+        
+        if thread.is_alive():
+            print(f"{Fore.YELLOW}TIMEOUT{Fore.RESET}: sub {subtitle['id']} -> Request exceeded {timeout_seconds}s")
             print(f"Subtitle request: [{subtitle['text']}]")
             print(f"Retry {Fore.YELLOW}{retries + 1}/{max_retries + 1}{Fore.RESET}")
             retries += 1
             if retries <= max_retries:
                 time.sleep(3)
-            else:
-                print(f"{Fore.RED}ERR{Fore.RESET}: The provider can't translate")
-                subtitle['translated'] = "! TRANSLATION ERROR !"
-                pbar.update(1)
-                return 
+            continue
+        
+        if result["error"]:
+            print(f"{Fore.RED}ERR{Fore.RESET}: sub {subtitle['id']} -> {result['error']}")
+            print(f"Subtitle request: [{subtitle['text']}]")
+            print(f"Retry {Fore.YELLOW}{retries + 1}/{max_retries + 1}{Fore.RESET}")
+            retries += 1
+            if retries <= max_retries:
+                time.sleep(3)
+            continue
+        
+        history.append({"role": "assistant", "content": result["response"].choices[0].message.content})
+        subtitle['translated'] = result["response"].choices[0].message.content
+        pbar.update(1)
+        return
+    
+    print(f"{Fore.RED}ERR{Fore.RESET}: The provider can't translate")
+    subtitle['translated'] = "! TRANSLATION ERROR !"
+    pbar.update(1)
 
 def check_language(lang_code):
     try:
