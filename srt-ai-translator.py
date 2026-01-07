@@ -1,6 +1,6 @@
 import os, json, pycountry, argparse, time, subprocess, tempfile, shutil
 from g4f.client import Client
-from g4f.Provider import Blackbox
+from g4f.Provider import DeepInfra
 from tqdm import tqdm
 from colorama import init, Fore, Style
 
@@ -38,9 +38,10 @@ def dict_to_srt(subtitles, output_file_path):
     except Exception as e:
         print(f"{Fore.RED}ERR{Fore.RESET}: {e}")
 
-def translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history):
-    max_retries = 4
+def translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history, model):
+    max_retries = 3
     retries = 0
+    
     new_message = {
         "role": "user",
         "content": f"Considering all translated subtitles in the full chat history,\
@@ -55,14 +56,14 @@ def translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history)
     # Append new message to history
     history.append(new_message)
     
-    # Keep history at max 30 messages (question + answer)
-    if len(history) > 2*30:
+    # Keep history at max 10 messages (question + answer)
+    if len(history) > 2*10:
         history.pop(0)
     
     while retries <= max_retries:
         try:
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model,
                 messages=history,
                 web_search=False
             )
@@ -71,11 +72,12 @@ def translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history)
             pbar.update(1)
             return
         except Exception as e:
-            print(f"{Fore.RED}ERR{Fore.RESET}: sub {subtitle['id']} -> {e}, retry {retries + 1}/{max_retries + 1}")
+            print(f"{Fore.RED}ERR{Fore.RESET}: sub {subtitle['id']} -> {e}")
             print(f"Subtitle request: [{subtitle['text']}]")
+            print(f"Retry {Fore.YELLOW}{retries + 1}/{max_retries + 1}{Fore.RESET}")
             retries += 1
             if retries <= max_retries:
-                time.sleep(5)
+                time.sleep(3)
             else:
                 print(f"{Fore.RED}ERR{Fore.RESET}: The provider can't translate")
                 subtitle['translated'] = "! TRANSLATION ERROR !"
@@ -106,7 +108,10 @@ def main():
     input_path = os.path.abspath(args.input_path)
     input_lang = check_language(args.input_lang)
     output_lang = check_language(args.output_lang)
-    client = Client(provider=Blackbox)
+
+    provider=DeepInfra
+    model="openai/gpt-oss-120b"
+    client = Client(provider=provider)
         
     # ERROR CHECK
     if not os.path.exists(input_path):
@@ -198,7 +203,7 @@ def main():
             history=[]
             with tqdm(total=len(subtitles_list), desc=f"{Fore.YELLOW}Translation{Fore.RESET}") as pbar:
                 for subtitle in subtitles_list:
-                    translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history)
+                    translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history, model)
 
             # FINAL SAVE
             dict_to_srt(subtitles_list, output_file)
@@ -253,7 +258,7 @@ def main():
             history=[]
             with tqdm(total=len(subtitles_list), desc=f"{Fore.YELLOW}Translation{Fore.RESET}") as pbar:
                 for subtitle in subtitles_list:
-                    translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history)
+                    translate_subtitle(client, subtitle, input_lang, output_lang, pbar, history, model)
 
             # FINAL SAVE
             dict_to_srt(subtitles_list, output_file)
